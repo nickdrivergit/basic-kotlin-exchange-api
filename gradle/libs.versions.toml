@@ -21,4 +21,5 @@ ktor-server-test-host = { module = "io.ktor:ktor-server-test-host-jvm", version.
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
 [plugins]
-jvm = { id = "org.jetbrains.kotlin.jvm", version = "1.9.23" }
+jvm = { id = "org.jetbrains.kotlin.jvm", version = "1.9.25" }
+

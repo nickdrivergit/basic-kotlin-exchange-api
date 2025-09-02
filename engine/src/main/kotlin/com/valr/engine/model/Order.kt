@@ -2,8 +2,6 @@ package com.valr.engine.model
 
 import java.math.BigDecimal
 
-enum class Side { BUY, SELL }
-
 data class Order(
     val id: String,
     val symbol: String,
