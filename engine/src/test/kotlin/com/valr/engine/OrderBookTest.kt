@@ -83,7 +83,7 @@ class OrderBookTest {
                         org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
                                 ob.placeOrder(badOrder)
                         }
-                
+
                 assertTrue(
                         exception.message!!.contains("price"),
                         "Expected error message to mention price"
@@ -108,7 +108,7 @@ class OrderBookTest {
                         org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
                                 ob.placeOrder(badOrder)
                         }
-                
+
                 assertTrue(
                         exception.message!!.contains("price"),
                         "Expected error message to mention price"
@@ -171,5 +171,163 @@ class OrderBookTest {
                         snapshot.asks.first().price == order.price,
                         "Expected ask price to equal order price"
                 )
+        }
+
+        @Test
+        fun `multiple orders at the same price aggregate in snapshot`() {
+                val ob = OrderBook("BTCZAR")
+
+                val order1 =
+                        Order(
+                                id = "agg-1",
+                                symbol = "BTCZAR",
+                                side = Side.BUY,
+                                price = java.math.BigDecimal("950000"),
+                                quantity = java.math.BigDecimal("0.3"),
+                                remaining = java.math.BigDecimal("0.3"),
+                                timestamp = System.currentTimeMillis()
+                        )
+
+                val order2 =
+                        Order(
+                                id = "agg-2",
+                                symbol = "BTCZAR",
+                                side = Side.BUY,
+                                price = java.math.BigDecimal("950000"),
+                                quantity = java.math.BigDecimal("0.7"),
+                                remaining = java.math.BigDecimal("0.7"),
+                                timestamp = System.currentTimeMillis()
+                        )
+
+                ob.placeOrder(order1)
+                ob.placeOrder(order2)
+
+                val snapshot = ob.snapshot()
+                assertTrue(snapshot.bids.size == 1, "Expected only one price level at 950000")
+                assertTrue(snapshot.bids.first().price == java.math.BigDecimal("950000"))
+                assertTrue(
+                        snapshot.bids.first().quantity == java.math.BigDecimal("1.0"),
+                        "Expected quantities to be aggregated"
+                )
+        }
+
+        @Test
+        fun `multiple bid orders at the different prices do not aggregate in snapshot`() {
+                val ob = OrderBook("BTCZAR")
+
+                val order1 =
+                        Order(
+                                id = "mul-1",
+                                symbol = "BTCZAR",
+                                side = Side.BUY,
+                                price = java.math.BigDecimal("950000"),
+                                quantity = java.math.BigDecimal("0.3"),
+                                remaining = java.math.BigDecimal("0.3"),
+                                timestamp = System.currentTimeMillis()
+                        )
+
+                val order2 =
+                        Order(
+                                id = "mul-2",
+                                symbol = "BTCZAR",
+                                side = Side.BUY,
+                                price = java.math.BigDecimal("950001"),
+                                quantity = java.math.BigDecimal("0.7"),
+                                remaining = java.math.BigDecimal("0.7"),
+                                timestamp = System.currentTimeMillis()
+                        )
+
+                ob.placeOrder(order1)
+                ob.placeOrder(order2)
+
+                val snapshot = ob.snapshot()
+                assertTrue(snapshot.bids.size == 2, "Expected two price levels")
+        }
+
+        @Test
+        fun `aggregated bid orders in snapshot are sorted descending`() {
+                val ob = OrderBook("BTCZAR")
+
+                val order1 =
+                        Order(
+                                id = "mul-1",
+                                symbol = "BTCZAR",
+                                side = Side.BUY,
+                                price = java.math.BigDecimal("950000"),
+                                quantity = java.math.BigDecimal("0.3"),
+                                remaining = java.math.BigDecimal("0.3"),
+                                timestamp = System.currentTimeMillis()
+                        )
+
+                val order2 =
+                        Order(
+                                id = "mul-2",
+                                symbol = "BTCZAR",
+                                side = Side.BUY,
+                                price = java.math.BigDecimal("950001"),
+                                quantity = java.math.BigDecimal("0.7"),
+                                remaining = java.math.BigDecimal("0.7"),
+                                timestamp = System.currentTimeMillis()
+                        )
+
+                ob.placeOrder(order1)
+                ob.placeOrder(order2)
+
+                val snapshot = ob.snapshot()
+                assertTrue(snapshot.bids.first().price == java.math.BigDecimal("950001"))
+                assertTrue(snapshot.bids.last().price == java.math.BigDecimal("950000"))
+                assertTrue(
+                        snapshot.bids.first().quantity == java.math.BigDecimal("0.7"),
+                        "Expected quantity found"
+                )
+                assertTrue(
+                        snapshot.bids.last().quantity == java.math.BigDecimal("0.3"),
+                        "Expected quantity found"
+                )
+        }
+
+        @Test
+        fun `snapshot aggregates bid orders at same price with multiple levels`() {
+                val ob = OrderBook("BTCZAR")
+
+                val order1 =
+                        Order(
+                                id = "mul-1",
+                                symbol = "BTCZAR",
+                                side = Side.BUY,
+                                price = java.math.BigDecimal("950000"),
+                                quantity = java.math.BigDecimal("0.3"),
+                                remaining = java.math.BigDecimal("0.3"),
+                                timestamp = System.currentTimeMillis()
+                        )
+
+                val order2 =
+                        Order(
+                                id = "mul-2",
+                                symbol = "BTCZAR",
+                                side = Side.BUY,
+                                price = java.math.BigDecimal("950001"),
+                                quantity = java.math.BigDecimal("0.7"),
+                                remaining = java.math.BigDecimal("0.7"),
+                                timestamp = System.currentTimeMillis()
+                        )
+
+                val order3 =
+                        Order(
+                                id = "mul-3",
+                                symbol = "BTCZAR",
+                                side = Side.BUY,
+                                price = java.math.BigDecimal("950001"),
+                                quantity = java.math.BigDecimal("0.3"),
+                                remaining = java.math.BigDecimal("0.3"),
+                                timestamp = System.currentTimeMillis()
+                        )
+
+                ob.placeOrder(order1)
+                ob.placeOrder(order2)
+                ob.placeOrder(order3)
+
+                val snapshot = ob.snapshot()
+                assertTrue(snapshot.bids.size == 2, "Expected two price levels")
         }
 }
