@@ -18,7 +18,7 @@ class OrderBook(val symbol: String) {
     private val asks = TreeMap<BigDecimal, ArrayDeque<Order>>(compareBy { it })
 
     // Store trades for trade history (newest last)
-    private val trades = mutableListOf<Trade>()
+    private val tradeHistory = mutableListOf<Trade>()
 
     fun snapshot(): OrderBookSnapshot {
         val bidLevels =
@@ -33,7 +33,7 @@ class OrderBook(val symbol: String) {
         require(order.quantity > BigDecimal.ZERO) { "Order quantity must be positive" }
         require(order.remaining > BigDecimal.ZERO) { "Remaining quantity must be positive" }
         require(order.price > BigDecimal.ZERO) { "Order price must be positive" }
-        
+
         when (order.side) {
             Side.BUY -> bids.computeIfAbsent(order.price) { ArrayDeque() }.add(order)
             Side.SELL -> asks.computeIfAbsent(order.price) { ArrayDeque() }.add(order)

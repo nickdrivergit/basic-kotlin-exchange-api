@@ -13,11 +13,7 @@ Built with **Kotlin + Ktor**, tested with **JUnit 5**, and packaged via **Docker
 - [Project Goals](#project-goals)
 - [Architecture](#architecture)
 - [Design Decisions & Trade-offs](#design-decisions--trade-offs)
-- [Data Structures](#data-structures)
-- [API (Planned Shape)](#api-planned-shape)
-- [Testing Strategy](#testing-strategy)
-- [Local Development](#local-development)
-- [Docker](#docker)
+
 - [Roadmap / Extensions](#roadmap--extensions)
 - [Notes / Assumptions](#notes--assumptions)
 
@@ -109,7 +105,7 @@ We’ll expose auto-generated API docs via Ktor’s Swagger/OpenAPI plugin (e.g.
 
 - **Auth**: simple HMAC/JWT for POST endpoints.
 - **Cancel/Amend**: add cancel and replace flows.
-- **Order time**-in-force: IOC/FOK support (document assumptions).
+- **Order time-in-force**: IOC/FOK support (document assumptions).
 - **Depth parameter**: GET /orderbook?depth=20.
 - **Metrics/Health**: /metrics, /readyz (Micrometer/Prometheus).
 - **Alternate HTTP runtime**: Vert.x adapter to showcase flexibility.
@@ -119,3 +115,11 @@ We’ll expose auto-generated API docs via Ktor’s Swagger/OpenAPI plugin (e.g.
 - In-memory only; no persistence across restarts.
 - Single symbol to start (BTCZAR), but structure supports many.
 - BigDecimal for price/qty; simple validation; optional normalization for display.
+
+
+Sections to add (maybe)
+- [Data Structures](#data-structures)
+- [API (Planned Shape)](#api-planned-shape)
+- [Testing Strategy](#testing-strategy)
+- [Local Development](#local-development)
+- [Docker](#docker)
