@@ -1,19 +1,17 @@
 package com.valr.engine.core
 
-import com.valr.engine.model.*
+import com.valr.engine.model.Level
+import com.valr.engine.model.Order
+import com.valr.engine.model.OrderBookSnapshot
+import com.valr.engine.model.Side
+import com.valr.engine.model.Trade
 import java.math.BigDecimal
 import java.util.ArrayDeque
 import java.util.TreeMap
 
 class OrderBook(val symbol: String) {
-
-    // Best bid = highest price first (descending)
     private val bids = TreeMap<BigDecimal, ArrayDeque<Order>>(compareByDescending { it })
-
-    // Best ask = lowest price first (ascending)
     private val asks = TreeMap<BigDecimal, ArrayDeque<Order>>(compareBy { it })
-
-    // Store trades for trade history (newest last)
     private val tradesHistory = mutableListOf<Trade>()
 
     fun snapshot(): OrderBookSnapshot {
@@ -28,14 +26,14 @@ class OrderBook(val symbol: String) {
     fun placeOrder(order: Order): List<Trade> {
         validate(order)
 
-        // Match against opposite book
+        // Match against opposite side
         val trades =
                 when (order.side) {
-                    Side.BUY -> match(order, asks) { taker, maker -> taker >= maker }
-                    Side.SELL -> match(order, bids) { taker, maker -> taker <= maker }
+                    Side.BUY -> match(order, asks)
+                    Side.SELL -> match(order, bids)
                 }
 
-        // If not fully filled, rest remainder on own side
+        // If not fully filled, rest on own side
         when (order.side) {
             Side.BUY -> rest(order, bids)
             Side.SELL -> rest(order, asks)
@@ -60,25 +58,23 @@ class OrderBook(val symbol: String) {
 
     private fun match(
             order: Order,
-            oppositeBook: TreeMap<BigDecimal, ArrayDeque<Order>>,
-            priceCrosses: (BigDecimal, BigDecimal) -> Boolean
+            oppositeBook: TreeMap<BigDecimal, ArrayDeque<Order>>
     ): List<Trade> {
         val trades = mutableListOf<Trade>()
 
-        val eligible =
-                if (order.side == Side.BUY) {
-                    oppositeBook.headMap(order.price + BigDecimal.ONE)
-                } else {
-                    oppositeBook.tailMap(order.price)
+        val oppositeOrders =
+                when (order.side) {
+                    Side.BUY -> oppositeBook.headMap(order.price, true)
+                    Side.SELL -> oppositeBook.tailMap(order.price, true)
                 }
 
-        val iterator = eligible.entries.iterator()
+        val iterator = oppositeOrders.entries.iterator()
 
         while (order.remaining > BigDecimal.ZERO && iterator.hasNext()) {
+            // Kept first var as price for clarity instead of `_`
             val (price, queue) = iterator.next()
 
-            if (!priceCrosses(order.price, price)) break
-
+            // FIFO matching at this price level
             while (order.remaining > BigDecimal.ZERO && queue.isNotEmpty()) {
                 val maker = queue.first()
                 val tradeQty = minOf(order.remaining, maker.remaining)
