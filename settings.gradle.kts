@@ -11,4 +11,4 @@ plugins {
 }
 
 rootProject.name = "basic-kotlin-exchange-api"
-include("app")
+include("app", "engine")
