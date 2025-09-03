@@ -13,8 +13,8 @@ import java.util.UUID
 class OrderBook(val symbol: String) {
 
     private data class PriceLevel(
-        val orders: ArrayDeque<Order> = ArrayDeque(),
-        var totalRemaining: BigDecimal = BigDecimal.ZERO
+            val orders: ArrayDeque<Order> = ArrayDeque(),
+            var totalRemaining: BigDecimal = BigDecimal.ZERO
     ) {
         fun addOrder(order: Order) {
             orders.addLast(order)
@@ -41,32 +41,35 @@ class OrderBook(val symbol: String) {
     private val tradesHistory: ArrayDeque<Trade> = ArrayDeque(maxTrades)
 
     fun snapshot(depth: Int? = null): OrderBookSnapshot {
-        val bidLevels = bids.entries
-            .map { (price, level) -> Level(price, level.totalRemaining) }
-            .asReversed() // highest bid first
-            .let { if (depth != null) it.take(depth) else it }
+        val bidLevels =
+                bids.entries
+                        .map { (price, level) -> Level(price, level.totalRemaining) }
+                        .asReversed() // highest bid first
+                        .let { if (depth != null) it.take(depth) else it }
 
-        val askLevels = asks.entries
-            .map { (price, level) -> Level(price, level.totalRemaining) }
-            .let { if (depth != null) it.take(depth) else it }
+        val askLevels =
+                asks.entries.map { (price, level) -> Level(price, level.totalRemaining) }.let {
+                    if (depth != null) it.take(depth) else it
+                }
 
         return OrderBookSnapshot(symbol = symbol, bids = bidLevels, asks = askLevels)
     }
 
     fun submitLimitOrder(
-        symbol: String,
-        side: Side,
-        price: BigDecimal,
-        quantity: BigDecimal
+            symbol: String,
+            side: Side,
+            price: BigDecimal,
+            quantity: BigDecimal
     ): Pair<Order, List<Trade>> {
-        val order = Order(
-            id = UUID.randomUUID().toString(),
-            symbol = symbol,
-            side = side,
-            price = price,
-            quantity = quantity,
-            remaining = quantity
-        )
+        val order =
+                Order(
+                        id = UUID.randomUUID().toString(),
+                        symbol = symbol,
+                        side = side,
+                        price = price,
+                        quantity = quantity,
+                        remaining = quantity
+                )
         val trades = placeOrder(order)
         return order to trades
     }
@@ -74,14 +77,15 @@ class OrderBook(val symbol: String) {
     fun placeOrder(order: Order): List<Trade> {
         validate(order)
 
-        val trades = when (order.side) {
-            Side.BUY  -> match(order, asks, true)
-            Side.SELL -> match(order, bids, false)
-        }
+        val trades =
+                when (order.side) {
+                    Side.BUY -> match(order, asks, true)
+                    Side.SELL -> match(order, bids, false)
+                }
 
         if (order.remaining > BigDecimal.ZERO) {
             when (order.side) {
-                Side.BUY  -> rest(order, bids)
+                Side.BUY -> rest(order, bids)
                 Side.SELL -> rest(order, asks)
             }
         }
@@ -90,7 +94,7 @@ class OrderBook(val symbol: String) {
     }
 
     fun getTrades(limit: Int = 50): List<Trade> =
-        tradesHistory.toList().takeLast(limit).asReversed()
+            tradesHistory.toList().takeLast(limit).asReversed()
 
     // -------------------------
     // Private helpers
@@ -105,19 +109,20 @@ class OrderBook(val symbol: String) {
     }
 
     private fun match(
-        order: Order,
-        oppositeBook: TreeMap<BigDecimal, PriceLevel>,
-        isBuy: Boolean
+            order: Order,
+            oppositeBook: TreeMap<BigDecimal, PriceLevel>,
+            isBuy: Boolean
     ): List<Trade> {
         val trades = mutableListOf<Trade>()
 
-        val eligibleLevels: Map<BigDecimal, PriceLevel> = if (isBuy) {
-            // BUY matches asks ≤ buy price (ascending order)
-            oppositeBook.headMap(order.price, true)
-        } else {
-            // SELL matches bids ≥ sell price (descending order)
-            oppositeBook.tailMap(order.price, true).descendingMap()
-        }
+        val eligibleLevels: Map<BigDecimal, PriceLevel> =
+                if (isBuy) {
+                    // BUY matches asks ≤ buy price (ascending order)
+                    oppositeBook.headMap(order.price, true)
+                } else {
+                    // SELL matches bids ≥ sell price (descending order)
+                    oppositeBook.tailMap(order.price, true).descendingMap()
+                }
 
         val toRemove = ArrayList<BigDecimal>()
         val iterator = eligibleLevels.entries.iterator()
@@ -130,14 +135,15 @@ class OrderBook(val symbol: String) {
                 val maker = level.orders.first()
                 val tradeQty = minOf(order.remaining, maker.remaining)
 
-                val trade = Trade(
-                    id = UUID.randomUUID().toString(),
-                    price = maker.price,
-                    quantity = tradeQty,
-                    takerOrderId = order.id,
-                    makerOrderId = maker.id,
-                    timestamp = System.currentTimeMillis()
-                )
+                val trade =
+                        Trade(
+                                id = UUID.randomUUID().toString(),
+                                price = maker.price,
+                                quantity = tradeQty,
+                                takerOrderId = order.id,
+                                makerOrderId = maker.id,
+                                timestamp = System.currentTimeMillis()
+                        )
                 trades.add(trade)
                 addTrade(trade)
 
@@ -149,11 +155,12 @@ class OrderBook(val symbol: String) {
                 }
             }
 
-            if (level.isEmpty()) {
-                // mark for removal AFTER iteration
+            if (level.isEmpty() || level.totalRemaining == BigDecimal.ZERO) {
                 toRemove.add(entry.key)
             }
         }
+        
+        toRemove.forEach { oppositeBook.remove(it) }
 
         return trades
     }
