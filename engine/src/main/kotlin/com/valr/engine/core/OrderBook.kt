@@ -21,7 +21,6 @@ class OrderBook(val symbol: String) {
             totalRemaining = totalRemaining.add(order.remaining)
         }
 
-        /** Consume from head (FIFO) and safely remove the order if <= 0 due to scale differences. */
         fun consumeFromHead(tradeQty: BigDecimal) {
             val maker = orders.first()
             maker.remaining = maker.remaining.subtract(tradeQty)
@@ -92,7 +91,6 @@ class OrderBook(val symbol: String) {
     }
 
     fun getTrades(limit: Int = 50): List<Trade> =
-        // Convert to List to use takeLast; newest-first for API ergonomics
         tradesHistory.toList().takeLast(limit).asReversed()
 
     // -------------------------
