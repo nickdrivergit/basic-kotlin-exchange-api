@@ -1,3 +1,3 @@
 plugins {
-    alias(libs.plugins.jvm) apply false
+    kotlin("jvm") version "1.9.25"
 }

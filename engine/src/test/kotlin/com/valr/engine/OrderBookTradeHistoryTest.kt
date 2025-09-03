@@ -3,8 +3,9 @@ package com.valr.engine
 import com.valr.engine.core.OrderBook
 import com.valr.engine.model.Order
 import com.valr.engine.model.Side
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import java.math.BigDecimal
 
 class OrderBookTradeHistoryTest {
