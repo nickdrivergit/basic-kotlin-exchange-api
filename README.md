@@ -13,7 +13,6 @@ Built with **Kotlin + Ktor**, tested with **JUnit 5**, and packaged via **Docker
 - [Project Goals](#project-goals)
 - [Architecture](#architecture)
 - [Design Decisions & Trade-offs](#design-decisions--trade-offs)
-
 - [Roadmap / Extensions](#roadmap--extensions)
 - [Notes / Assumptions](#notes--assumptions)
 
@@ -94,18 +93,18 @@ basic-kotlin-exchange-api/
 - This beats linear scans and avoids the complexity of custom heaps/skip lists for this scope.
 
 ### Precision & validation
-- Internally we’ll use **BigDecimal** for price/quantity (no float/double) to avoid rounding error.
+- Internally we’ll use **BigDecimal** for price/quantity (no float/double) to avoid rounding errors.
 - Basic validation: non-negative price/quantity; symbol known; simple scales.
 
 ## API Docs (planned)
 
-We’ll expose auto-generated API docs via Ktor’s Swagger/OpenAPI plugin (e.g. /openapi) once endpoints are in place.
+We’ll expose auto-generated API docs via Ktor’s Swagger/OpenAPI plugin once endpoints are in place.
 
 ## Roadmap / Extensions
 
 - **Auth**: simple HMAC/JWT for POST endpoints.
 - **Cancel/Amend**: add cancel and replace flows.
-- **Order time-in-force**: IOC/FOK support (document assumptions).
+- **Order time-in-force**: IOC/FOK support.
 - **Depth parameter**: GET /orderbook?depth=20.
 - **Metrics/Health**: /metrics, /readyz (Micrometer/Prometheus).
 - **Alternate HTTP runtime**: Vert.x adapter to showcase flexibility.
