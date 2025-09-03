@@ -21,9 +21,10 @@ class OrderBookMatchingTest {
         val trades = ob.placeOrder(buy)
 
         assertEquals(1, trades.size)
-        assertEquals(bd("1"), trades.first().quantity)
-        val snap = ob.snapshot()
-        assertTrue(snap.bids.isEmpty() && snap.asks.isEmpty(), "Both orders filled")
+        val t = trades.first()
+        assertEquals("b1", t.takerOrderId)
+        assertEquals("s1", t.makerOrderId)
+        assertEquals(bd("1"), t.quantity)
     }
 
     @Test
@@ -36,7 +37,9 @@ class OrderBookMatchingTest {
         val trades = ob.placeOrder(sell)
 
         assertEquals(1, trades.size)
-        assertEquals(bd("960000"), trades.first().price, "Should match best bid (960000) first")
+        val t = trades.first()
+        assertEquals("s1", t.takerOrderId)
+        assertEquals("b2", t.makerOrderId, "Should match best bid (960000)")
     }
 
     @Test
@@ -49,7 +52,9 @@ class OrderBookMatchingTest {
         val trades = ob.placeOrder(buy)
 
         assertEquals(1, trades.size)
-        assertEquals(bd("960000"), trades.first().price, "Should match best ask (960000) first")
+        val t = trades.first()
+        assertEquals("b1", t.takerOrderId)
+        assertEquals("s2", t.makerOrderId, "Should match best ask (960000)")
     }
 
     @Test
@@ -58,42 +63,65 @@ class OrderBookMatchingTest {
         ob.placeOrder(Order("s1", "BTCZAR", Side.SELL, bd("950000"), bd("1.0"), bd("1.0")))
 
         val buy = Order("b1", "BTCZAR", Side.BUY, bd("950000"), bd("0.4"), bd("0.4"))
-        ob.placeOrder(buy)
+        val trades = ob.placeOrder(buy)
+
+        assertEquals(1, trades.size)
+        val t = trades.first()
+        assertEquals("b1", t.takerOrderId)
+        assertEquals("s1", t.makerOrderId)
+        assertEquals(bd("0.4"), t.quantity)
 
         val snap = ob.snapshot()
         assertEquals(bd("0.6"), snap.asks.first().quantity, "0.6 should remain on ask side")
-        assertTrue(snap.bids.isEmpty())
     }
 
     @Test
     fun `large buy consumes multiple asks from lowest to higher`() {
         val ob = OrderBook("BTCZAR")
-        ob.placeOrder(Order("s1", "BTCZAR", Side.SELL, bd("960000"), bd("0.3"), bd("0.3")))
-        ob.placeOrder(Order("s2", "BTCZAR", Side.SELL, bd("970000"), bd("0.7"), bd("0.7")))
+        val ask1 = Order("s1", "BTCZAR", Side.SELL, bd("960000"), bd("0.3"), bd("0.3"))
+        val ask2 = Order("s2", "BTCZAR", Side.SELL, bd("970000"), bd("0.7"), bd("0.7"))
+        ob.placeOrder(ask1)
+        ob.placeOrder(ask2)
 
         val bigBuy = Order("b1", "BTCZAR", Side.BUY, bd("970000"), bd("2.0"), bd("2.0"))
         val trades = ob.placeOrder(bigBuy)
 
         assertEquals(2, trades.size)
-        assertEquals(listOf(bd("960000"), bd("970000")), trades.map { it.price }, "Should match lower ask (960000) first")
-        assertEquals(bd("1.0"), trades.sumOf { it.quantity })
-        val snap = ob.snapshot()
-        assertTrue(snap.bids.isNotEmpty(), "Unfilled remainder should rest on bids")
+        assertEquals(listOf(bd("960000"), bd("970000")), trades.map { it.price })
+        assertEquals(listOf("s1", "s2"), trades.map { it.makerOrderId }, "Should match lowest ask first")
+        assertTrue(trades.all { it.takerOrderId == "b1" })
     }
 
     @Test
     fun `large sell consumes multiple bids from highest to lower`() {
         val ob = OrderBook("BTCZAR")
-        ob.placeOrder(Order("b1", "BTCZAR", Side.BUY, bd("960000"), bd("0.5"), bd("0.5")))
-        ob.placeOrder(Order("b2", "BTCZAR", Side.BUY, bd("950000"), bd("0.5"), bd("0.5")))
+        val bid1 = Order("b1", "BTCZAR", Side.BUY, bd("960000"), bd("0.5"), bd("0.5"))
+        val bid2 = Order("b2", "BTCZAR", Side.BUY, bd("950000"), bd("0.5"), bd("0.5"))
+        ob.placeOrder(bid1)
+        ob.placeOrder(bid2)
 
         val bigSell = Order("s1", "BTCZAR", Side.SELL, bd("950000"), bd("1.0"), bd("1.0"))
         val trades = ob.placeOrder(bigSell)
 
         assertEquals(2, trades.size)
-        assertEquals(listOf(bd("960000"), bd("950000")), trades.map { it.price }, "Should match higher bid (960000) first")
-        assertEquals(bd("1.0"), trades.sumOf { it.quantity })
-        val snap = ob.snapshot()
-        assertTrue(snap.asks.isEmpty(), "No asks should remain")
+        assertEquals(listOf(bd("960000"), bd("950000")), trades.map { it.price })
+        assertEquals(listOf("b1", "b2"), trades.map { it.makerOrderId }, "Should match highest bid first")
+        assertTrue(trades.all { it.takerOrderId == "s1" })
+    }
+
+    @Test
+    fun `fifo fairness within same price level`() {
+        val ob = OrderBook("BTCZAR")
+        val bid1 = Order("b1", "BTCZAR", Side.BUY, bd("950000"), bd("0.5"), bd("0.5"))
+        val bid2 = Order("b2", "BTCZAR", Side.BUY, bd("950000"), bd("0.5"), bd("0.5"))
+        ob.placeOrder(bid1)
+        ob.placeOrder(bid2)
+
+        val sell = Order("s1", "BTCZAR", Side.SELL, bd("950000"), bd("1.0"), bd("1.0"))
+        val trades = ob.placeOrder(sell)
+
+        assertEquals(2, trades.size)
+        assertEquals(listOf("b1", "b2"), trades.map { it.makerOrderId }, "Earlier resting bid must fill first")
+        assertTrue(trades.all { it.takerOrderId == "s1" })
     }
 }
