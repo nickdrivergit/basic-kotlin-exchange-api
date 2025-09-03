@@ -1,53 +1,44 @@
 plugins {
-    alias(libs.plugins.jvm)
-    id("application")
+    kotlin("jvm")
+    application
     id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
-repositories {
-    mavenCentral()
-}
+repositories { mavenCentral() }
 
 dependencies {
-    implementation(libs.ktor.server.core)
-    implementation(libs.ktor.server.netty)
-    implementation(libs.ktor.server.content.negotiation)
-    implementation(libs.ktor.serialization.kotlinx.json)
-    implementation(libs.logback.classic)
+    implementation(platform("io.vertx:vertx-stack-depchain:4.5.9"))
 
-    // (Swagger UI placeholder; we’ll wire docs later)
-    implementation(libs.ktor.server.swagger)
+    implementation("io.vertx:vertx-core:4.5.9")
+    implementation("io.vertx:vertx-web:4.5.9")
+    implementation("io.vertx:vertx-web-client:4.5.9")
 
-    testImplementation(libs.ktor.server.test.host)
-    testImplementation(libs.junit.jupiter)
-    testImplementation(libs.kotlin.test) 
+    // Kotlin language + coroutines
+    implementation("io.vertx:vertx-lang-kotlin:4.5.9")
+    implementation("io.vertx:vertx-lang-kotlin-coroutines:4.5.9")
+
+    // JSON (Jackson + Kotlin)
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.2")
+
+    // Use your engine
+    implementation(project(":engine"))
+
+    testImplementation("io.vertx:vertx-junit5")
+    testImplementation(kotlin("test"))
 }
 
-kotlin {
-    jvmToolchain(17)
-}
 
 application {
-    mainClass.set("com.valr.app.ApplicationKt")
+    mainClass.set("com.valr.api.ApplicationKt")
 }
 
-tasks.test {
-    useJUnitPlatform()
-
-    testLogging {
-        // Always show standard out/err
-        showStandardStreams = true
-
-        // Events to log
-        events("passed", "skipped", "failed")
-
-        // Show full exception stack traces
-        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-    }
+tasks.withType<Jar> {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
-tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar> {
+tasks.shadowJar {
     archiveBaseName.set("api")
     archiveClassifier.set("all")
-    archiveVersion.set("")
+    mergeServiceFiles()
 }
