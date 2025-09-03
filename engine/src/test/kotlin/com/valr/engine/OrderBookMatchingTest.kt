@@ -31,7 +31,7 @@ class OrderBookMatchingTest {
     fun `sell matches highest bid first`() {
         val ob = OrderBook("BTCZAR")
         ob.placeOrder(Order("b1", "BTCZAR", Side.BUY, bd("950000"), bd("1"), bd("1")))
-        ob.placeOrder(Order("b2", "BTCZAR", Side.BUY, bd("960000"), bd("1"), bd("1"))) // better price
+        ob.placeOrder(Order("b2", "BTCZAR", Side.BUY, bd("960000"), bd("1"), bd("1")))
 
         val sell = Order("s1", "BTCZAR", Side.SELL, bd("950000"), bd("1"), bd("1"))
         val trades = ob.placeOrder(sell)
@@ -46,7 +46,7 @@ class OrderBookMatchingTest {
     fun `buy matches lowest ask first`() {
         val ob = OrderBook("BTCZAR")
         ob.placeOrder(Order("s1", "BTCZAR", Side.SELL, bd("970000"), bd("1"), bd("1")))
-        ob.placeOrder(Order("s2", "BTCZAR", Side.SELL, bd("960000"), bd("1"), bd("1"))) // better price
+        ob.placeOrder(Order("s2", "BTCZAR", Side.SELL, bd("960000"), bd("1"), bd("1")))
 
         val buy = Order("b1", "BTCZAR", Side.BUY, bd("970000"), bd("1"), bd("1"))
         val trades = ob.placeOrder(buy)

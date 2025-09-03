@@ -43,6 +43,7 @@ class OrderBookTradeHistoryTest {
         val s1 = Order("s1", "BTCZAR", Side.SELL, bd("950000"), bd("1"), bd("1"))
         val s2 = Order("s2", "BTCZAR", Side.SELL, bd("950000"), bd("1"), bd("1"))
         ob.placeOrder(s1)
+        ob.placeOrder(s2)
         ob.placeOrder(Order("b1", "BTCZAR", Side.BUY, bd("950000"), bd("2"), bd("2")))
 
         val tradesAll = ob.getTrades(limit = 10).asReversed() // oldest-first

@@ -25,8 +25,6 @@ class OrderBook(val symbol: String) {
             val maker = orders.first()
             maker.remaining = maker.remaining.subtract(tradeQty)
             totalRemaining = totalRemaining.subtract(tradeQty)
-
-            // Use compareTo to avoid scale-sensitive equals() issues with BigDecimal
             if (maker.remaining.compareTo(BigDecimal.ZERO) <= 0) {
                 orders.removeFirst()
             }
@@ -35,16 +33,17 @@ class OrderBook(val symbol: String) {
         fun isEmpty(): Boolean = orders.isEmpty()
     }
 
-    private val bids = TreeMap<BigDecimal, PriceLevel>()
-    private val asks = TreeMap<BigDecimal, PriceLevel>()
+    // Both maps stored ascending
+    private val bids = TreeMap<BigDecimal, PriceLevel>() // best bid = lastKey()
+    private val asks = TreeMap<BigDecimal, PriceLevel>() // best ask = firstKey()
 
-    private val maxTrades = 10_000 // configurable cap for bounded memory
+    private val maxTrades = 10_000
     private val tradesHistory: ArrayDeque<Trade> = ArrayDeque(maxTrades)
 
     fun snapshot(depth: Int? = null): OrderBookSnapshot {
         val bidLevels = bids.entries
             .map { (price, level) -> Level(price, level.totalRemaining) }
-            .asReversed()
+            .asReversed() // highest bid first
             .let { if (depth != null) it.take(depth) else it }
 
         val askLevels = asks.entries
@@ -76,11 +75,11 @@ class OrderBook(val symbol: String) {
         validate(order)
 
         val trades = when (order.side) {
-            Side.BUY  -> match(order, asks)
-            Side.SELL -> match(order, bids)
+            Side.BUY  -> match(order, asks, true)
+            Side.SELL -> match(order, bids, false)
         }
 
-        if (order.remaining.compareTo(BigDecimal.ZERO) > 0) {
+        if (order.remaining > BigDecimal.ZERO) {
             when (order.side) {
                 Side.BUY  -> rest(order, bids)
                 Side.SELL -> rest(order, asks)
@@ -98,39 +97,42 @@ class OrderBook(val symbol: String) {
     // -------------------------
 
     private fun validate(order: Order) {
-        require(order.quantity.compareTo(BigDecimal.ZERO) > 0) { "Order quantity must be positive" }
-        require(order.remaining.compareTo(BigDecimal.ZERO) > 0) { "Remaining quantity must be positive" }
-        require(order.remaining.compareTo(order.quantity) <= 0) { "Remaining cannot exceed quantity" }
-        require(order.price.compareTo(BigDecimal.ZERO) > 0) { "Order price must be positive" }
+        require(order.quantity > BigDecimal.ZERO) { "Order quantity must be positive" }
+        require(order.remaining > BigDecimal.ZERO) { "Remaining quantity must be positive" }
+        require(order.remaining <= order.quantity) { "Remaining cannot exceed quantity" }
+        require(order.price > BigDecimal.ZERO) { "Order price must be positive" }
         require(order.symbol == symbol) { "Order symbol must match this order book ($symbol)" }
     }
 
     private fun match(
         order: Order,
-        oppositeBook: TreeMap<BigDecimal, PriceLevel>
+        oppositeBook: TreeMap<BigDecimal, PriceLevel>,
+        isBuy: Boolean
     ): List<Trade> {
         val trades = mutableListOf<Trade>()
 
-        val eligibleLevels = when (order.side) {
-            // BUY can match any ask <= order.price (best ask upwards)
-            Side.BUY  -> oppositeBook.headMap(order.price, true)
-            // SELL can match any bid >= order.price (best bid downwards)
-            Side.SELL -> oppositeBook.tailMap(order.price, true)
+        val eligibleLevels: Map<BigDecimal, PriceLevel> = if (isBuy) {
+            // BUY matches asks ≤ buy price (ascending order)
+            oppositeBook.headMap(order.price, true)
+        } else {
+            // SELL matches bids ≥ sell price (descending order)
+            oppositeBook.tailMap(order.price, true).descendingMap()
         }
 
+        val toRemove = ArrayList<BigDecimal>()
         val iterator = eligibleLevels.entries.iterator()
 
-        while (order.remaining.compareTo(BigDecimal.ZERO) > 0 && iterator.hasNext()) {
+        while (order.remaining > BigDecimal.ZERO && iterator.hasNext()) {
             val entry = iterator.next()
             val level = entry.value
 
-            while (order.remaining.compareTo(BigDecimal.ZERO) > 0 && !level.isEmpty()) {
+            while (order.remaining > BigDecimal.ZERO && !level.isEmpty()) {
                 val maker = level.orders.first()
                 val tradeQty = minOf(order.remaining, maker.remaining)
 
                 val trade = Trade(
                     id = UUID.randomUUID().toString(),
-                    price = maker.price, // trades execute at maker price
+                    price = maker.price,
                     quantity = tradeQty,
                     takerOrderId = order.id,
                     makerOrderId = maker.id,
@@ -139,16 +141,17 @@ class OrderBook(val symbol: String) {
                 trades.add(trade)
                 addTrade(trade)
 
-                // Update quantities (use compareTo checks for safety)
                 order.remaining = order.remaining.subtract(tradeQty)
                 level.consumeFromHead(tradeQty)
 
-                // Sanity checks to fail fast if logic regresses
-                require(order.remaining.compareTo(BigDecimal.ZERO) >= 0) { "Taker overfilled: ${order.remaining}" }
+                require(order.remaining >= BigDecimal.ZERO) {
+                    "Taker overfilled: ${order.remaining}"
+                }
             }
 
             if (level.isEmpty()) {
-                iterator.remove()
+                // mark for removal AFTER iteration
+                toRemove.add(entry.key)
             }
         }
 
