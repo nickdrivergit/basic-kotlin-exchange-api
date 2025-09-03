@@ -9,5 +9,5 @@ data class Order(
     val price: BigDecimal,
     val quantity: BigDecimal,
     var remaining: BigDecimal,
-    val timestamp: Long
+    val timestamp: Long = System.currentTimeMillis()
 )
