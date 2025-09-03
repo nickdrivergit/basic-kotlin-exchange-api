@@ -3,9 +3,9 @@ package com.valr.engine
 import com.valr.engine.core.OrderBook
 import com.valr.engine.model.Order
 import com.valr.engine.model.Side
+import java.math.BigDecimal
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import java.math.BigDecimal
 
 class OrderBookMatchingTest {
 
@@ -88,7 +88,11 @@ class OrderBookMatchingTest {
 
         assertEquals(2, trades.size)
         assertEquals(listOf(bd("960000"), bd("970000")), trades.map { it.price })
-        assertEquals(listOf("s1", "s2"), trades.map { it.makerOrderId }, "Should match lowest ask first")
+        assertEquals(
+                listOf("s1", "s2"),
+                trades.map { it.makerOrderId },
+                "Should match lowest ask first"
+        )
         assertTrue(trades.all { it.takerOrderId == "b1" })
     }
 
@@ -105,7 +109,11 @@ class OrderBookMatchingTest {
 
         assertEquals(2, trades.size)
         assertEquals(listOf(bd("960000"), bd("950000")), trades.map { it.price })
-        assertEquals(listOf("b1", "b2"), trades.map { it.makerOrderId }, "Should match highest bid first")
+        assertEquals(
+                listOf("b1", "b2"),
+                trades.map { it.makerOrderId },
+                "Should match highest bid first"
+        )
         assertTrue(trades.all { it.takerOrderId == "s1" })
     }
 
@@ -121,7 +129,35 @@ class OrderBookMatchingTest {
         val trades = ob.placeOrder(sell)
 
         assertEquals(2, trades.size)
-        assertEquals(listOf("b1", "b2"), trades.map { it.makerOrderId }, "Earlier resting bid must fill first")
+        assertEquals(
+                listOf("b1", "b2"),
+                trades.map { it.makerOrderId },
+                "Earlier resting bid must fill first"
+        )
         assertTrue(trades.all { it.takerOrderId == "s1" })
+    }
+
+    @Test
+    fun `empty levels are removed from order book`() {
+        val ob = OrderBook("BTCZAR")
+
+        // Place a resting SELL order at 950000
+        val sell = Order("s1", "BTCZAR", Side.SELL, bd("950000"), bd("1.0"), bd("1.0"))
+        ob.placeOrder(sell)
+
+        // Cross it fully with a BUY
+        val buy = Order("b1", "BTCZAR", Side.BUY, bd("950000"), bd("1.0"), bd("1.0"))
+        val trades = ob.placeOrder(buy)
+
+        // Sanity: trade executed
+        assertEquals(1, trades.size)
+        assertEquals(bd("1.0"), trades.first().quantity)
+
+        // Snapshot should NOT include a 950000 ask with 0 quantity
+        val snapshot = ob.snapshot()
+        assertTrue(
+                snapshot.asks.none { it.price == bd("950000") && it.quantity == bd("0.0") },
+                "OrderBook snapshot should not include zero-quantity levels"
+        )
     }
 }

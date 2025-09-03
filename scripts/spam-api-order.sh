@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-API_URL="http://localhost:8080/api/v1"
+API_URL="http://localhost:8080/api"
 SYMBOL="BTCZAR"
 
 # how many random orders to place
