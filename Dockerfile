@@ -17,7 +17,7 @@ WORKDIR /api
 # Copy the fat jar from builder stage
 COPY --from=builder /home/gradle/src/api/build/libs/api-all.jar api.jar
 
-# Expose the port Ktor runs on
+# Expose the port Vert.x runs on
 EXPOSE 8080
 
 # Run the application

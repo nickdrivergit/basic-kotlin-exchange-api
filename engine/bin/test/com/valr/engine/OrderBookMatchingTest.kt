@@ -138,6 +138,57 @@ class OrderBookMatchingTest {
     }
 
     @Test
+    fun `price equality boundaries match correctly`() {
+        val ob = OrderBook("BTCZAR")
+        // Ask at 960000, Buy at 960000 should match
+        ob.placeOrder(Order("s1", "BTCZAR", Side.SELL, bd("960000"), bd("1"), bd("1")))
+        val t1 = ob.placeOrder(Order("b1", "BTCZAR", Side.BUY, bd("960000"), bd("1"), bd("1")))
+        assertEquals(1, t1.size)
+        // Bid at 950000, Sell at 950000 should match
+        ob.placeOrder(Order("b2", "BTCZAR", Side.BUY, bd("950000"), bd("1"), bd("1")))
+        val t2 = ob.placeOrder(Order("s2", "BTCZAR", Side.SELL, bd("950000"), bd("1"), bd("1")))
+        assertEquals(1, t2.size)
+    }
+
+    @Test
+    fun `fully consumed level is removed`() {
+        val ob = OrderBook("BTCZAR")
+        ob.placeOrder(Order("b1", "BTCZAR", Side.BUY, bd("950000"), bd("1"), bd("1")))
+        // One sell that consumes the only bid level
+        ob.placeOrder(Order("s1", "BTCZAR", Side.SELL, bd("950000"), bd("1"), bd("1")))
+        val snap = ob.snapshot()
+        assertTrue(snap.bids.isEmpty(), "Bid level should be removed once empty")
+    }
+
+    @Test
+    fun `partial fill then rest continues FIFO on next taker`() {
+        val ob = OrderBook("BTCZAR")
+        // Two sells at same price (FIFO: s1, then s2)
+        ob.placeOrder(Order("s1", "BTCZAR", Side.SELL, bd("960000"), bd("0.6"), bd("0.6")))
+        ob.placeOrder(Order("s2", "BTCZAR", Side.SELL, bd("960000"), bd("0.5"), bd("0.5")))
+
+        // First taker partially fills s1
+        val t1 = ob.placeOrder(Order("b1", "BTCZAR", Side.BUY, bd("960000"), bd("0.4"), bd("0.4")))
+        assertEquals(1, t1.size)
+        // Next taker should continue with remaining s1 (0.2) then s2
+        val t2 = ob.placeOrder(Order("b2", "BTCZAR", Side.BUY, bd("960000"), bd("0.6"), bd("0.6")))
+        assertEquals(listOf("s1", "s2"), t2.map { it.makerOrderId })
+        assertEquals(listOf(bd("0.2"), bd("0.4")), t2.map { it.quantity })
+    }
+
+    @Test
+    fun `trade executes at maker price across multiple levels`() {
+        val ob = OrderBook("BTCZAR")
+        // Makers on ask side at 960000 and 970000
+        ob.placeOrder(Order("s1", "BTCZAR", Side.SELL, bd("960000"), bd("0.3"), bd("0.3")))
+        ob.placeOrder(Order("s2", "BTCZAR", Side.SELL, bd("970000"), bd("0.3"), bd("0.3")))
+        // Taker crosses with a buy at 990000
+        val trades = ob.placeOrder(Order("b1", "BTCZAR", Side.BUY, bd("990000"), bd("0.5"), bd("0.5")))
+        // Prices should be makers' prices in order: 960000 then 970000
+        assertEquals(listOf(bd("960000"), bd("970000")), trades.map { it.price })
+    }
+
+    @Test
     fun `empty levels are removed from order book`() {
         val ob = OrderBook("BTCZAR")
 

@@ -48,4 +48,20 @@ class OrderBookValidationTest {
         val bad = Order("id", "ETHZAR", Side.BUY, bd("950000"), bd("1"), bd("1"))
         assertThrows(IllegalArgumentException::class.java) { ob.placeOrder(bad) }
     }
+
+    @Test
+    fun `remaining equal to zero should throw`() {
+        val ob = OrderBook("BTCZAR")
+        val bad = Order("id", "BTCZAR", Side.BUY, bd("950000"), bd("1"), bd("0"))
+        val ex = assertThrows(IllegalArgumentException::class.java) { ob.placeOrder(bad) }
+        assertTrue(ex.message!!.contains("Remaining"))
+    }
+
+    @Test
+    fun `remaining less than zero should throw`() {
+        val ob = OrderBook("BTCZAR")
+        val bad = Order("id", "BTCZAR", Side.SELL, bd("950000"), bd("1"), bd("-0.1"))
+        val ex = assertThrows(IllegalArgumentException::class.java) { ob.placeOrder(bad) }
+        assertTrue(ex.message!!.contains("Remaining"))
+    }
 }
