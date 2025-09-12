@@ -2,7 +2,7 @@
 
 A small, **in-memory limit order book** with a Kotlin HTTP API.  
 It exposes endpoints to place **limit orders**, view the **order book**, and read **recent trades**.  
-Built with **Kotlin + Ktor**, tested with **JUnit 5**, and packaged via **Docker**.
+Built with **Kotlin + Vert.x**, tested with **JUnit 5**, and packaged via **Docker**.
 
 > Status: scaffolding complete (`/healthz`), engine in progress.
 
@@ -22,7 +22,7 @@ Built with **Kotlin + Ktor**, tested with **JUnit 5**, and packaged via **Docker
 
 ### Run locally (WSL/Linux/macOS)
 ```bash
-./gradlew :app:run
+./gradlew :api:run
 # in another shell
 curl -s http://localhost:8080/healthz
 # -> ok
@@ -33,7 +33,7 @@ curl -s http://localhost:8080/healthz
 ./gradlew test
 # or module-specific:
 ./gradlew :engine:test
-./gradlew :app:test
+./gradlew :api:test
 ```
 
 ### Build & Run with Docker
@@ -58,29 +58,27 @@ curl -s http://localhost:8080/healthz
 
 ## Architecture
 
-### Multi-module Grade Project:
+### Multi-module Gradle Project:
 ```bash
 basic-kotlin-exchange-api/
-├── app/        # Runnable Ktor server (HTTP, DI, config)
-├── engine/     # Pure domain & matching logic (no HTTP)
-└── (api/)      # [Optional] If split later: DTOs + route wiring
+├── api/        # Runnable Vert.x server (HTTP routing, JSON, OpenAPI)
+└── engine/     # Pure domain & matching logic (no HTTP)
 ```
 
-- **App** depends on **engine**.
+- **API** depends on **engine**.
 - **Engine** contains domain models (Order, Trade, etc.) and the OrderBook implementation.
-- API DTOs live with the HTTP layer (in app for now). If they grow, we’ll extract an **api** module.
+- API DTOs live with the HTTP layer (in `api`).
 
 ### Why this shape?
 
 - Engine stays **framework-agnostic** so its easy to test and reuse.
-- HTTP layer is a thin adapter
-- Keeps a path open to split further (e.g. api/ as shown above) without refactoring core logic.
+- HTTP layer is a thin adapter.
 
 ## Design Decisions & Trade-offs
 
 ### Where to put shared models?
 - Considered a separate `common/` module; decided not to add it to avoid over-modularizing a small assessment.
-- **Decision**: domain models live in `engine.model`; HTTP DTOs live with the API (currently app).
+- **Decision**: domain models live in `engine.model`; HTTP DTOs live with the API (currently `api`).
 
 ### Matching & priority
 - **Price–time priority**: match best price first; within a price level, FIFO (oldest first).
@@ -96,9 +94,9 @@ basic-kotlin-exchange-api/
 - Internally we’ll use **BigDecimal** for price/quantity (no float/double) to avoid rounding errors.
 - Basic validation: non-negative price/quantity; symbol known; simple scales.
 
-## API Docs (planned)
+## API Docs
 
-We’ll expose auto-generated API docs via Ktor’s Swagger/OpenAPI plugin once endpoints are in place.
+The API serves `openapi.yaml` and a Swagger UI page under `/docs` using Vert.x Web and the OpenAPI components.
 
 ## Roadmap / Extensions
 

@@ -1,0 +1,73 @@
+openapi: 3.0.3
+info:
+  title: Simple Order Book API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+
+  /api/orderbook/{symbol}:
+    get:
+      summary: Get order book snapshot
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema: { type: string }
+        - name: depth
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Snapshot
+          content:
+            application/json: {}
+
+  /api/orders/{symbol}:
+    post:
+      summary: Submit limit order
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                side: { type: string, enum: [BUY, SELL] }
+                price: { type: number }
+                quantity: { type: number }
+      responses:
+        "200":
+          description: Created order + trades
+          content:
+            application/json: {}
+
+  /api/trades/{symbol}:
+    get:
+      summary: Recent trades
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: List of trades
+          content:
+            application/json: {}
