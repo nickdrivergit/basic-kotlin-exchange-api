@@ -32,7 +32,9 @@ data class ErrorResponse(val error: String, val details: String? = null)
 object OrderBooks {
     // One book per symbol; kept on the event-loop thread so engine structures stay safe
     private val books = ConcurrentHashMap<String, OrderBook>()
+    private val locks = ConcurrentHashMap<String, Any>()
     fun of(symbol: String): OrderBook = books.computeIfAbsent(symbol.uppercase()) { OrderBook(it) }
+    fun lockFor(symbol: String): Any = locks.computeIfAbsent(symbol.uppercase()) { Any() }
 }
 
 class ApiVerticle : CoroutineVerticle() {
@@ -57,7 +59,9 @@ class ApiVerticle : CoroutineVerticle() {
                     val depth = ctx.queryParam("depth").firstOrNull()?.toIntOrNull()
                     val snapshot = vertx.executeBlocking<Any> { p ->
                         try {
-                            p.complete(OrderBooks.of(symbol).snapshot(depth))
+                            synchronized(OrderBooks.lockFor(symbol)) {
+                                p.complete(OrderBooks.of(symbol).snapshot(depth))
+                            }
                         } catch (e: Exception) { p.fail(e) }
                     }.await()
                     ctx.json(snapshot)
@@ -73,14 +77,16 @@ class ApiVerticle : CoroutineVerticle() {
             launch {
                 try {
                     val symbol = ctx.pathParam("symbol")
-                    val req = ctx.bodyAsJson.mapTo(SubmitOrderRequest::class.java)
+                    val req = ctx.body().asJsonObject().mapTo(SubmitOrderRequest::class.java)
                     val side = req.toSide()
 
                     val result = vertx.executeBlocking<Pair<Any, Any>> { p ->
                         try {
-                            val (order, trades) = OrderBooks.of(symbol)
-                                    .submitLimitOrder(symbol, side, req.price, req.quantity)
-                            p.complete(order to trades)
+                            synchronized(OrderBooks.lockFor(symbol)) {
+                                val (order, trades) = OrderBooks.of(symbol)
+                                        .submitLimitOrder(symbol, side, req.price, req.quantity)
+                                p.complete(order to trades)
+                            }
                         } catch (e: Exception) { p.fail(e) }
                     }.await()
 
@@ -100,7 +106,11 @@ class ApiVerticle : CoroutineVerticle() {
                     val symbol = ctx.pathParam("symbol")
                     val limit = ctx.queryParam("limit").firstOrNull()?.toIntOrNull() ?: 50
                     val trades = vertx.executeBlocking<Any> { p ->
-                        try { p.complete(OrderBooks.of(symbol).getTrades(limit)) } catch (e: Exception) { p.fail(e) }
+                        try {
+                            synchronized(OrderBooks.lockFor(symbol)) {
+                                p.complete(OrderBooks.of(symbol).getTrades(limit))
+                            }
+                        } catch (e: Exception) { p.fail(e) }
                     }.await()
                     ctx.json(trades)
                 } catch (e: Exception) {
