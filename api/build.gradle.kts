@@ -28,11 +28,17 @@ dependencies {
 
     testImplementation("io.vertx:vertx-junit5")
     testImplementation(kotlin("test"))
+    // Ensure JUnit 5 platform + API present
+    testImplementation(libs.junit.jupiter)
 }
 
 
 application {
     mainClass.set("com.valr.api.ApplicationKt")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks.withType<Jar> {

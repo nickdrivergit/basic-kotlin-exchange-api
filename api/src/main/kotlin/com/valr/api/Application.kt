@@ -71,9 +71,11 @@ class ApiVerticle : CoroutineVerticle() {
             }
         }
 
-        // Submit limit order: /api/v1/orders/:symbol
+        // Submit limit order: /api/orders/:symbol (authenticated)
         // Body: { "side": "BUY|SELL", "price": "123.45", "quantity": "1.234" }
-        router.post("/api/orders/:symbol").handler { ctx ->
+        router.post("/api/orders/:symbol")
+                .handler(HmacAuthHandler())
+                .handler { ctx ->
             launch {
                 try {
                     val symbol = ctx.pathParam("symbol")

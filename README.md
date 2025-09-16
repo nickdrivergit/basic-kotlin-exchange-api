@@ -4,7 +4,7 @@ A small, **in-memory limit order book** with a Kotlin HTTP API.
 It exposes endpoints to place **limit orders**, view the **order book**, and read **recent trades**.  
 Built with **Kotlin + Vert.x**, tested with **JUnit 5**, and packaged via **Docker**.
 
-> Status: scaffolding complete (`/healthz`), engine in progress.
+> Status: Basic Orderbook + HMAC auth for POST /api/orders
 
 ---
 
@@ -13,6 +13,8 @@ Built with **Kotlin + Vert.x**, tested with **JUnit 5**, and packaged via **Dock
 - [Project Goals](#project-goals)
 - [Architecture](#architecture)
 - [Design Decisions & Trade-offs](#design-decisions--trade-offs)
+- [Authentication](#authentication)
+- [API Docs](#api-docs)
 - [Roadmap / Extensions](#roadmap--extensions)
 - [Notes / Assumptions](#notes--assumptions)
 
@@ -94,16 +96,59 @@ basic-kotlin-exchange-api/
 - Internally we’ll use **BigDecimal** for price/quantity (no float/double) to avoid rounding errors.
 - Basic validation: non-negative price/quantity; symbol known; simple scales.
 
+## Authentication
+
+- Mutating endpoints (currently `POST /api/orders/:symbol`) require VALR‑style HMAC auth headers:
+  - `X-VALR-API-KEY`
+  - `X-VALR-TIMESTAMP` (Unix millis as string)
+  - `X-VALR-SIGNATURE` (hex of HMAC‑SHA512 over `timestamp + verb + path + body` using your API secret)
+- Content type enforcement: `content-type: application/json` is required for `POST/PUT/PATCH` or the API returns `403`.
+- Key management (dev):
+  - By default the server enables a dev key: `API_KEY=test-key`, `API_SECRET=test-secret`.
+  - You can override via environment variables `API_KEY` and `API_SECRET`.
+
+### Example: sign and place an order (bash)
+
+Set variables and compute the signature with `openssl`:
+
+```bash
+API_KEY=${API_KEY:-test-key}
+API_SECRET=${API_SECRET:-test-secret}
+TS=$(date +%s%3N)                 # unix millis
+VERB=POST
+PATH=/api/orders/BTCZAR           # path only (no host, no query)
+BODY='{"side":"BUY","price":"100","quantity":"0.01"}'
+
+SIG=$(printf "%s" "$TS$VERB$PATH$BODY" \
+  | openssl dgst -sha512 -hmac "$API_SECRET" -binary \
+  | xxd -p -c 256)
+
+curl -sS -X POST "http://localhost:8080$PATH" \
+  -H "content-type: application/json" \
+  -H "X-VALR-API-KEY: $API_KEY" \
+  -H "X-VALR-TIMESTAMP: $TS" \
+  -H "X-VALR-SIGNATURE: $SIG" \
+  -d "$BODY"
+```
+
+Expected response: JSON object containing the `order` and any resulting `trades`.
+
+### Docker with custom keys
+
+```bash
+docker run -p 8080:8080 \
+  -e API_KEY=my-key -e API_SECRET=my-secret \
+  exchange-api
+```
+
 ## API Docs
 
 The API serves `openapi.yaml` and a Swagger UI page under `/docs` using Vert.x Web and the OpenAPI components.
 
 ## Roadmap / Extensions
 
-- **Auth**: simple HMAC/JWT for POST endpoints.
 - **Cancel/Amend**: add cancel and replace flows.
 - **Order time-in-force**: IOC/FOK support.
-- **Depth parameter**: GET /orderbook?depth=20.
 - **Metrics/Health**: /metrics, /readyz (Micrometer/Prometheus).
 - **Alternate HTTP runtime**: Vert.x adapter to showcase flexibility.
 - **Persistence (out of scope)**: optional store for trades/orders.
