@@ -9,5 +9,6 @@ data class Order(
     val price: BigDecimal,
     val quantity: BigDecimal,
     var remaining: BigDecimal,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val timeInForce: TimeInForce = TimeInForce.GTC
 )
