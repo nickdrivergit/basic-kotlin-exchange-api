@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.valr.engine.core.OrderBook
 import com.valr.engine.model.Side
+import com.valr.engine.model.TimeInForce
 import io.vertx.core.Vertx
 import io.vertx.core.http.HttpServerOptions
 import io.vertx.core.json.jackson.DatabindCodec
@@ -18,12 +19,23 @@ import java.math.BigDecimal
 import java.util.concurrent.ConcurrentHashMap
 
 // ---- DTOs ----
-data class SubmitOrderRequest(val side: String, val price: BigDecimal, val quantity: BigDecimal) {
+data class SubmitOrderRequest(
+        val side: String,
+        val price: BigDecimal,
+        val quantity: BigDecimal,
+        val timeInForce: String? = null
+) {
     fun toSide(): Side =
             try {
                 Side.valueOf(side.uppercase())
             } catch (e: IllegalArgumentException) {
                 throw IllegalArgumentException("side must be BUY or SELL")
+            }
+    fun toTimeInForce(): TimeInForce =
+            try {
+                timeInForce?.let { TimeInForce.valueOf(it.uppercase()) } ?: TimeInForce.GTC
+            } catch (e: IllegalArgumentException) {
+                throw IllegalArgumentException("timeInForce must be GTC, IOC or FOK")
             }
 }
 
@@ -81,12 +93,13 @@ class ApiVerticle : CoroutineVerticle() {
                     val symbol = ctx.pathParam("symbol")
                     val req = ctx.body().asJsonObject().mapTo(SubmitOrderRequest::class.java)
                     val side = req.toSide()
+                    val tif = req.toTimeInForce()
 
                     val result = vertx.executeBlocking<Pair<Any, Any>> { p ->
                         try {
                             synchronized(OrderBooks.lockFor(symbol)) {
                                 val (order, trades) = OrderBooks.of(symbol)
-                                        .submitLimitOrder(symbol, side, req.price, req.quantity)
+                                        .submitLimitOrder(symbol, side, req.price, req.quantity, tif)
                                 p.complete(order to trades)
                             }
                         } catch (e: Exception) { p.fail(e) }

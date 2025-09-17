@@ -52,7 +52,7 @@ curl -s http://localhost:8080/healthz
 - Implement a working in-memory order book with price–time priority and order matching.
 - Provide an HTTP API to:
     - Get order book (aggregated price levels).
-    - Submit limit orders.
+    - Submit limit orders (GTC/IOC/FOK).
     - Get recent trades.
 - Include unit tests for the engine and light integration tests for the API.
 - Favor clarity and extensibility over premature micro-optimizations.
@@ -132,6 +132,21 @@ curl -sS -X POST "http://localhost:8080$PATH" \
 ```
 
 Expected response: JSON object containing the `order` and any resulting `trades`.
+
+### Time In Force
+
+- Supported values: `GTC` (default), `IOC`, `FOK`.
+- Request field: add `timeInForce` to the order body.
+- Semantics:
+  - `GTC`: match immediately, rest remainder on the book.
+  - `IOC`: match immediately, cancel any remainder (do not rest).
+  - `FOK`: if full quantity cannot be matched immediately, cancel the entire order (no trades).
+
+Example body with IOC:
+
+```json
+{ "side": "BUY", "price": "100", "quantity": "0.5", "timeInForce": "IOC" }
+```
 
 ### Docker with custom keys
 

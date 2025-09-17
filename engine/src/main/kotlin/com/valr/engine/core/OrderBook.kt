@@ -5,6 +5,7 @@ import com.valr.engine.model.Order
 import com.valr.engine.model.OrderBookSnapshot
 import com.valr.engine.model.Side
 import com.valr.engine.model.Trade
+import com.valr.engine.model.TimeInForce
 import java.math.BigDecimal
 import java.util.ArrayDeque
 import java.util.TreeMap
@@ -59,7 +60,8 @@ class OrderBook(val symbol: String) {
             symbol: String,
             side: Side,
             price: BigDecimal,
-            quantity: BigDecimal
+            quantity: BigDecimal,
+            timeInForce: TimeInForce = TimeInForce.GTC
     ): Pair<Order, List<Trade>> {
         val order =
                 Order(
@@ -68,7 +70,8 @@ class OrderBook(val symbol: String) {
                         side = side,
                         price = price,
                         quantity = quantity,
-                        remaining = quantity
+                        remaining = quantity,
+                        timeInForce = timeInForce
                 )
         val trades = placeOrder(order)
         return order to trades
@@ -77,16 +80,31 @@ class OrderBook(val symbol: String) {
     fun placeOrder(order: Order): List<Trade> {
         validate(order)
 
-        val trades =
-                when (order.side) {
-                    Side.BUY -> match(order, asks, true)
-                    Side.SELL -> match(order, bids, false)
-                }
+        // FOK pre-check: if not fully fillable now, cancel immediately (no trades, no book changes)
+        if (order.timeInForce == TimeInForce.FOK) {
+            val canFillAll = when (order.side) {
+                Side.BUY -> canFullyFill(order, asks, isBuy = true)
+                Side.SELL -> canFullyFill(order, bids, isBuy = false)
+            }
+            if (!canFillAll) return emptyList()
+        }
 
-        if (order.remaining > BigDecimal.ZERO) {
-            when (order.side) {
-                Side.BUY -> rest(order, bids)
-                Side.SELL -> rest(order, asks)
+        val trades = when (order.side) {
+            Side.BUY -> match(order, asks, true)
+            Side.SELL -> match(order, bids, false)
+        }
+
+        when (order.timeInForce) {
+            TimeInForce.GTC -> {
+                if (order.remaining > BigDecimal.ZERO) {
+                    when (order.side) {
+                        Side.BUY -> rest(order, bids)
+                        Side.SELL -> rest(order, asks)
+                    }
+                }
+            }
+            TimeInForce.IOC, TimeInForce.FOK -> {
+                // Do not rest any remaining quantity.
             }
         }
 
@@ -163,6 +181,26 @@ class OrderBook(val symbol: String) {
         toRemove.forEach { oppositeBook.remove(it) }
 
         return trades
+    }
+
+    private fun canFullyFill(
+            order: Order,
+            oppositeBook: TreeMap<BigDecimal, PriceLevel>,
+            isBuy: Boolean
+    ): Boolean {
+        val eligible: Map<BigDecimal, PriceLevel> =
+                if (isBuy) {
+                    oppositeBook.headMap(order.price, true)
+                } else {
+                    oppositeBook.tailMap(order.price, true)
+                }
+        if (eligible.isEmpty()) return false
+        var total = BigDecimal.ZERO
+        for ((_, level) in eligible) {
+            total = total.add(level.totalRemaining)
+            if (total >= order.quantity) return true
+        }
+        return total >= order.quantity
     }
 
     private fun rest(order: Order, book: TreeMap<BigDecimal, PriceLevel>) {

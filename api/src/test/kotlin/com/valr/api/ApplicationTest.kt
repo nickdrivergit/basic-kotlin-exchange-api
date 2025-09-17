@@ -219,6 +219,30 @@ class ApplicationTest {
                         }
                 )
     }
+
+    @Test
+    fun iocDoesNotRestRemainder(testContext: VertxTestContext) {
+        val symbol = "TSTIOC"
+        val ask = JsonObject().put("side", "SELL").put("price", "100").put("quantity", "0.3")
+        val buyIoc = JsonObject().put("side", "BUY").put("price", "100").put("quantity", "0.5").put("timeInForce", "IOC")
+
+        val (ts1, sig1) = sign("POST", "/api/orders/$symbol", ask.encode())
+        val (ts2, sig2) = sign("POST", "/api/orders/$symbol", buyIoc.encode())
+
+        client.post(8080, "localhost", "/api/orders/$symbol").putHeader("X-VALR-API-KEY", "test-key").putHeader("X-VALR-TIMESTAMP", ts1).putHeader("X-VALR-SIGNATURE", sig1).sendJsonObject(ask)
+                .compose { client.post(8080, "localhost", "/api/orders/$symbol").putHeader("X-VALR-API-KEY", "test-key").putHeader("X-VALR-TIMESTAMP", ts2).putHeader("X-VALR-SIGNATURE", sig2).sendJsonObject(buyIoc) }
+                .compose { client.get(8080, "localhost", "/api/orderbook/$symbol").send() }
+                .onComplete(
+                        testContext.succeeding<HttpResponse<Buffer>> { res ->
+                            assertEquals(200, res.statusCode())
+                            val ob = res.bodyAsJsonObject()
+                            val bids = ob.getJsonArray("bids")
+                            // IOC remainder should not rest as bid
+                            assertTrue(bids == null || bids.isEmpty)
+                            testContext.completeNow()
+                        }
+                )
+    }
 }
 
 // ---- Test helpers ----
