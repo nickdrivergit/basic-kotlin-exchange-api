@@ -40,8 +40,8 @@ curl -s http://localhost:8080/healthz
 
 ### Build & Run with Docker
 ```bash
-docker build -t valr-orderbook .
-docker run -p 8080:8080 valr-orderbook
+docker build -t exchange-api .
+docker run -p 8080:8080 exchange-api
 curl -s http://localhost:8080/healthz
 ```
 
@@ -85,7 +85,7 @@ basic-kotlin-exchange-api/
 
 ### Where to put shared models?
 - Considered a separate `common/` module; decided not to add it to avoid over-modularizing a small assessment.
-- **Decision**: domain models live in `engine.model`; HTTP DTOs live with the API (currently `api`).
+- **Decision**: domain models live in `com.valr.domain.model`; HTTP DTOs live with the API (currently `api`).
 
 ### Matching & priority
 - **Price–time priority**: match best price first; within a price level, FIFO (oldest first).
