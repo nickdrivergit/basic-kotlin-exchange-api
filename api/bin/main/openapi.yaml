@@ -38,6 +38,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
+          example: BTCZAR
         - name: depth
           in: query
           required: false
@@ -47,6 +48,7 @@ paths:
             minimum: 1
             maximum: 1000
             default: 50
+          example: 2
       responses:
         "200":
           description: Snapshot
@@ -54,23 +56,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderBookSnapshot'
+              examples:
+                sample:
+                  value:
+                    symbol: BTCZAR
+                    bids:
+                      - { price: "950000.00", quantity: "1.00" }
+                      - { price: "949000.00", quantity: "0.50" }
+                    asks:
+                      - { price: "951000.00", quantity: "0.25" }
+                      - { price: "952000.00", quantity: "0.75" }
         "400":
           description: Bad Request
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                badDepth:
+                  summary: Non-integer depth
+                  value: { error: "Invalid depth query parameter" }
 
   /api/orders/{symbol}:
     post:
       summary: Submit limit order
       operationId: submitOrder
       tags: [Orders]
+      security:
+        - ApiKeyHeader: []
+          TimestampHeader: []
+          SignatureHeader: []
       parameters:
         - name: symbol
           in: path
           required: true
           schema: { type: string }
+          example: BTCZAR
         - $ref: '#/components/parameters/ApiKeyHeader'
         - $ref: '#/components/parameters/TimestampHeader'
         - $ref: '#/components/parameters/SignatureHeader'
@@ -94,24 +115,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SubmitOrderResponse'
+              examples:
+                filled:
+                  summary: Immediate match
+                  value:
+                    order:
+                      id: "o-123"
+                      symbol: BTCZAR
+                      side: BUY
+                      price: "950000.00"
+                      quantity: "1.00"
+                      remaining: "0.00"
+                      timestamp: 1700000000000
+                      timeInForce: GTC
+                    trades:
+                      - { id: "t-1", price: "950000.00", quantity: "1.00", takerOrderId: "o-123", makerOrderId: "m-9", timestamp: 1700000000001 }
+                resting:
+                  summary: No match, rests on book
+                  value:
+                    order:
+                      id: "o-456"
+                      symbol: BTCZAR
+                      side: BUY
+                      price: "900000.00"
+                      quantity: "0.50"
+                      remaining: "0.50"
+                      timestamp: 1700000000002
+                      timeInForce: GTC
+                    trades: []
         "403":
           description: Forbidden (missing/invalid auth headers or wrong content-type)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingHeaders:
+                  value: { error: "Missing API authentication headers" }
+                invalidSignature:
+                  value: { error: "Invalid signature" }
+                badContentType:
+                  value: { error: "content-type must be application/json" }
         "400":
           description: Bad Request
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidSide:
+                  value: { error: "side must be BUY or SELL" }
+                invalidTIF:
+                  value: { error: "timeInForce must be GTC, IOC or FOK" }
+                badNumbers:
+                  value: { error: "Order price must be positive" }
         "500":
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                generic:
+                  value: { error: "Unhandled error" }
 
   /api/trades/{symbol}:
     get:
@@ -123,6 +189,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
+          example: BTCZAR
         - name: limit
           in: query
           description: Number of recent trades to return (newest first)
@@ -131,6 +198,7 @@ paths:
             minimum: 0
             maximum: 1000
             default: 50
+          example: 2
       responses:
         "200":
           description: List of trades
@@ -140,12 +208,20 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Trade'
+              examples:
+                sample:
+                  value:
+                    - { id: "t-10", price: "950000.00", quantity: "0.25", takerOrderId: "o-x", makerOrderId: "o-y", timestamp: 1700000000100 }
+                    - { id: "t-11", price: "951000.00", quantity: "0.10", takerOrderId: "o-a", makerOrderId: "o-b", timestamp: 1700000000200 }
         "400":
           description: Bad Request
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                badLimit:
+                  value: { error: "Invalid limit query parameter" }
 
 components:
   securitySchemes:
@@ -171,18 +247,21 @@ components:
       required: true
       description: API key identifier
       schema: { type: string }
+      example: test-key
     TimestampHeader:
       name: X-VALR-TIMESTAMP
       in: header
       required: true
       description: Unix timestamp in milliseconds, as a string
       schema: { type: string }
+      example: "1700000000000"
     SignatureHeader:
       name: X-VALR-SIGNATURE
       in: header
       required: true
       description: Hex HMAC-SHA512 of timestamp + verb + path + body using the API secret
       schema: { type: string }
+      example: "deadbeef..."
   schemas:
     SubmitOrderRequest:
       type: object
