@@ -4,7 +4,7 @@ A small, **in-memory limit order book** with a Kotlin HTTP API.
 It exposes endpoints to place **limit orders**, view the **order book**, and read **recent trades**.  
 Built with **Kotlin + Vert.x**, tested with **JUnit 5**, and packaged via **Docker**.
 
-> Status: Basic Orderbook + HMAC auth for POST /api/orders
+> Status: Engine + API stable. Multi‑symbol in‑memory order books, HMAC auth for POST /api/orders, order book snapshot and recent trades endpoints, CI and JMH benchmarks in place.
 
 ---
 
@@ -167,10 +167,13 @@ The API serves `openapi.yaml` and a Swagger UI page under `/docs` using Vert.x W
 
 ## Roadmap / Extensions
 
-- **Cancel/Amend**: add cancel and replace flows.
-- **Metrics/Health**: /metrics, /readyz (Micrometer/Prometheus).
-- **Alternate HTTP runtime**: Vert.x adapter to showcase flexibility.
-- **Persistence (out of scope)**: optional store for trades/orders.
+- Cancel/Replace: order cancel and amend flows.
+- Metrics/Readiness: `/metrics`, `/readyz` with Micrometer/Prometheus.
+- Idempotency/Rate limits: headers and basic throttling on POST.
+- Pagination/Filters: trade history pagination, symbol filters, limits.
+- Persistence adapter: pluggable storage (e.g., Postgres/Redis) for orders/trades.
+- OpenAPI polish: richer schemas, examples, and error models.
+- Alternate HTTP runtime (optional): e.g., Ktor to demonstrate adapter swap.
 
 ### Performance (JMH)
 
@@ -179,5 +182,7 @@ The API serves `openapi.yaml` and a Swagger UI page under `/docs` using Vert.x W
 
 ## Notes / Assumptions
 - In-memory only; no persistence across restarts.
-- Single symbol to start (BTCZAR), but structure supports many.
-- BigDecimal for price/qty; simple validation; optional normalization for display.
+- Multi-symbol supported (per-symbol books via in-memory store).
+- BigDecimal for price/qty; input validated at API boundary; engine enforces invariants.
+- Default port `8080`.
+- HMAC signature uses `timestamp + verb + path + body` (path excludes host and query).
