@@ -2,12 +2,12 @@
 
 ## Project Structure & Modules
 - `api/` — Vert.x HTTP API (entrypoint `com.valr.api.ApplicationKt`).
-  - `src/main/kotlin/` API routes, DTOs.
+  - `src/main/kotlin/` API routes, DTOs, auth handler.
   - `src/test/kotlin/` API tests (JUnit 5 + Vert.x JUnit 5).
-- `engine/` — order book domain and matching logic.
-  - `src/main/kotlin/` core types (`com.valr.engine.*`).
-  - `src/test/kotlin/` unit tests (JUnit 5).
-  - `src/perfTest/kotlin/` performance tests (`:engine:perfTest`).
+- `domain/` — pure domain models and core `OrderBook` aggregate (`com.valr.domain.*`).
+- `application/` — use-cases/services (e.g., `OrderMatchingService`), defines ports.
+- `adapters/persistence-inmemory/` — in-memory adapter implementing application ports.
+- `perf/` — JMH microbenchmarks.
 - `scripts/` — utilities (e.g., `spam-api-order.sh`).
 - `Dockerfile` — multi-stage build using `:api:shadowJar`.
 
@@ -15,22 +15,21 @@
 - Build all: `./gradlew build`
 - Run API locally: `./gradlew :api:run` then `curl http://localhost:8080/healthz`
 - Fat JAR: `./gradlew :api:shadowJar` → `api/build/libs/api-all.jar`
-- Unit tests: `./gradlew test` (or `:engine:test`, `:api:test`)
-- Perf tests: `./gradlew :engine:perfTest`
-- JMH benchmarks: `./gradlew :engine:jmh` (optional, produces reports under `engine/build/reports/jmh/`)
+- Unit tests: `./gradlew test` (or `:domain:test`, `:api:test`)
+- JMH benchmarks: `./gradlew :perf:jmh` (reports under `perf/build/reports/jmh/`)
 - Docker: `docker build -t exchange-api .` then `docker run -p 8080:8080 exchange-api`
 
 ## Coding Style & Naming
 - Kotlin 1.9, JDK 17, Gradle Kotlin DSL.
 - Follow Kotlin official style (4-space indent, 100–120 col soft limit).
-- Packages: `com.valr.api` and `com.valr.engine`; match file and class names (PascalCase classes, lowerCamelCase members).
-- Keep `engine` framework-free; API logic (routing/HTTP) lives in `api`.
+- Packages: `com.valr.api`, `com.valr.application`, `com.valr.domain`; match file and class names.
+- Keep `domain` and `application` framework-free; API logic (routing/HTTP) lives in `api`.
 
 ## Testing Guidelines
 - Framework: JUnit 5 across modules; Vert.x test utilities in `api`.
 - Naming: test classes end with `Test` (e.g., `OrderBookMatchingTest.kt`).
-- Run: `./gradlew test`; for perf: `./gradlew :engine:perfTest`; for microbenchmarks: `./gradlew :engine:jmh`.
-- Prefer deterministic unit tests in `engine`; keep integration tests light in `api`.
+- Run: `./gradlew test`; microbenchmarks: `./gradlew :perf:jmh`.
+- Prefer deterministic unit tests in `domain`; keep integration tests light in `api`.
 
 ## Commit & Pull Requests
 - Commits: imperative mood, concise summary; prefix optional scope (e.g., `engine:` or `api:`). Example: `engine: fix level removal when empty`.

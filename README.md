@@ -34,7 +34,7 @@ curl -s http://localhost:8080/healthz
 ```bash
 ./gradlew test
 # or module-specific:
-./gradlew :engine:test
+./gradlew :domain:test
 ./gradlew :api:test
 ```
 
@@ -60,20 +60,25 @@ curl -s http://localhost:8080/healthz
 
 ## Architecture
 
-### Multi-module Gradle Project:
+### Multi-module Gradle Project (DDD):
 ```bash
 basic-kotlin-exchange-api/
-├── api/        # Runnable Vert.x server (HTTP routing, JSON, OpenAPI)
-└── engine/     # Pure domain & matching logic (no HTTP)
+├── api/                         # HTTP adapter (Vert.x), auth, DTOs, OpenAPI
+├── domain/                      # Pure domain model + core aggregate (OrderBook)
+├── application/                 # Use-cases/services orchestrating domain
+├── adapters/
+│   └── persistence-inmemory/    # In-memory store implementing application ports
+└── perf/                        # JMH microbenchmarks
 ```
 
-- **API** depends on **engine**.
-- **Engine** contains domain models (Order, Trade, etc.) and the OrderBook implementation.
-- API DTOs live with the HTTP layer (in `api`).
+- api -> application -> domain
+- adapters:* -> application (+ domain)
+- perf -> application (+ domain)
 
 ### Why this shape?
 
-- Engine stays **framework-agnostic** so its easy to test and reuse.
+- Domain stays **framework-agnostic** so it’s easy to test and reuse.
+- Application orchestrates use-cases via ports; adapters are replaceable.
 - HTTP layer is a thin adapter.
 
 ## Design Decisions & Trade-offs
@@ -163,10 +168,14 @@ The API serves `openapi.yaml` and a Swagger UI page under `/docs` using Vert.x W
 ## Roadmap / Extensions
 
 - **Cancel/Amend**: add cancel and replace flows.
-- **Order time-in-force**: IOC/FOK support.
 - **Metrics/Health**: /metrics, /readyz (Micrometer/Prometheus).
 - **Alternate HTTP runtime**: Vert.x adapter to showcase flexibility.
 - **Persistence (out of scope)**: optional store for trades/orders.
+
+### Performance (JMH)
+
+- Run: `./gradlew :perf:jmh` (or `-PprodJmh` if configured)
+- Reports: `perf/build/reports/jmh/`
 
 ## Notes / Assumptions
 - In-memory only; no persistence across restarts.
