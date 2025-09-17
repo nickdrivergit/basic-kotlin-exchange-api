@@ -9,6 +9,8 @@ paths:
   /healthz:
     get:
       summary: Health check
+      operationId: healthz
+      tags: [System]
       responses:
         "200":
           description: OK
@@ -16,6 +18,8 @@ paths:
   /api/orderbook/{symbol}:
     get:
       summary: Get order book snapshot
+      operationId: getOrderBook
+      tags: [OrderBook]
       parameters:
         - name: symbol
           in: path
@@ -24,40 +28,83 @@ paths:
         - name: depth
           in: query
           required: false
-          schema: { type: integer }
+          description: Number of levels to return on each side (top-N)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
       responses:
         "200":
           description: Snapshot
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderBookSnapshot'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/orders/{symbol}:
     post:
       summary: Submit limit order
+      operationId: submitOrder
+      tags: [Orders]
       parameters:
         - name: symbol
           in: path
           required: true
           schema: { type: string }
+        - $ref: '#/components/parameters/ApiKeyHeader'
+        - $ref: '#/components/parameters/TimestampHeader'
+        - $ref: '#/components/parameters/SignatureHeader'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                side: { type: string, enum: [BUY, SELL] }
-                price: { type: number }
-                quantity: { type: number }
+              $ref: '#/components/schemas/SubmitOrderRequest'
+            examples:
+              gtc:
+                value: { side: BUY, price: "100", quantity: "0.5" }
+              ioc:
+                value: { side: BUY, price: "100", quantity: "0.5", timeInForce: IOC }
+              fok:
+                value: { side: BUY, price: "100", quantity: "0.5", timeInForce: FOK }
       responses:
         "200":
           description: Created order + trades
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitOrderResponse'
+         "403":
+           description: Forbidden (missing/invalid auth headers or wrong content-type)
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/ErrorResponse'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/trades/{symbol}:
     get:
       summary: Recent trades
+      operationId: getRecentTrades
+      tags: [Trades]
       parameters:
         - name: symbol
           in: path
@@ -65,9 +112,125 @@ paths:
           schema: { type: string }
         - name: limit
           in: query
-          schema: { type: integer }
+          description: Number of recent trades to return (newest first)
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 1000
+            default: 50
       responses:
         "200":
           description: List of trades
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trade'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-VALR-API-KEY
+      description: API key identifier
+  parameters:
+    ApiKeyHeader:
+      name: X-VALR-API-KEY
+      in: header
+      required: true
+      description: API key identifier
+      schema: { type: string }
+    TimestampHeader:
+      name: X-VALR-TIMESTAMP
+      in: header
+      required: true
+      description: Unix timestamp in milliseconds, as a string
+      schema: { type: string }
+    SignatureHeader:
+      name: X-VALR-SIGNATURE
+      in: header
+      required: true
+      description: Hex HMAC-SHA512 of timestamp + verb + path + body using the API secret
+      schema: { type: string }
+  schemas:
+    SubmitOrderRequest:
+      type: object
+      required: [side, price, quantity]
+      properties:
+        side: { type: string, enum: [BUY, SELL] }
+        price:
+          type: string
+          description: Price as string to preserve decimal precision
+          example: "100.00"
+        quantity:
+          type: string
+          description: Quantity as string to preserve decimal precision
+          example: "0.50"
+        timeInForce:
+          type: string
+          description: Time in force for the order
+          enum: [GTC, IOC, FOK]
+          default: GTC
+    SubmitOrderResponse:
+      type: object
+      properties:
+        order:
+          $ref: '#/components/schemas/Order'
+        trades:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trade'
+    Order:
+      type: object
+      properties:
+        id: { type: string }
+        symbol: { type: string }
+        side: { type: string, enum: [BUY, SELL] }
+        price: { type: string }
+        quantity: { type: string }
+        remaining: { type: string }
+        timestamp: { type: integer, format: int64 }
+        timeInForce: { type: string, enum: [GTC, IOC, FOK] }
+    Trade:
+      type: object
+      properties:
+        id: { type: string }
+        price: { type: string }
+        quantity: { type: string }
+        takerOrderId: { type: string }
+        makerOrderId: { type: string }
+        timestamp: { type: integer, format: int64 }
+    Level:
+      type: object
+      properties:
+        price: { type: string }
+        quantity: { type: string }
+    OrderBookSnapshot:
+      type: object
+      properties:
+        symbol: { type: string }
+        bids:
+          type: array
+          description: Sorted descending (best bid first)
+          items:
+            $ref: '#/components/schemas/Level'
+        asks:
+          type: array
+          description: Sorted ascending (best ask first)
+          items:
+            $ref: '#/components/schemas/Level'
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+        details:
+          type: string
+          nullable: true
