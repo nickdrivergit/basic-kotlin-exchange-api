@@ -11,4 +11,4 @@ plugins {
 }
 
 rootProject.name = "basic-kotlin-exchange-api"
-include("api", "engine")
+include("api", "domain", "application", "adapters:persistence-inmemory", "perf")

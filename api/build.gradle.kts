@@ -2,6 +2,7 @@ plugins {
     kotlin("jvm")
     application
     id("com.github.johnrengelman.shadow") version "8.1.1"
+    jacoco
 }
 
 repositories { mavenCentral() }
@@ -23,8 +24,13 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.2")
 
-    // Use your engine
-    implementation(project(":engine"))
+    // Application layer (DDD)
+    implementation(project(":application"))
+    implementation(project(":domain"))
+    implementation(project(":adapters:persistence-inmemory"))
+
+    // Logging
+    implementation(libs.logback.classic)
 
     testImplementation("io.vertx:vertx-junit5")
     testImplementation(kotlin("test"))
@@ -50,3 +56,5 @@ tasks.shadowJar {
     archiveClassifier.set("all")
     mergeServiceFiles()
 }
+
+jacoco { toolVersion = "0.8.11" }
