@@ -74,6 +74,16 @@ class OrderBookSnapshotTest {
     }
 
     @Test
+    fun `snapshot with zero depth returns empty lists`() {
+        val ob = OrderBook("BTCZAR")
+        ob.placeOrder(Order("b1", "BTCZAR", Side.BUY, bd("950000"), bd("1"), bd("1")))
+        ob.placeOrder(Order("s1", "BTCZAR", Side.SELL, bd("960000"), bd("2"), bd("2")))
+        val snap = ob.snapshot(depth = 0)
+        assertTrue(snap.bids.isEmpty())
+        assertTrue(snap.asks.isEmpty())
+    }
+
+    @Test
     fun `non-crossing orders rest on correct sides`() {
         val ob = OrderBook("BTCZAR")
         ob.placeOrder(Order("b1", "BTCZAR", Side.BUY, bd("940000"), bd("1.0"), bd("1.0")))
@@ -114,4 +124,3 @@ class OrderBookSnapshotTest {
         assertEquals(snap3, snap3b)
     }
 }
-
