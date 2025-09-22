@@ -111,14 +111,14 @@ class OrderBook(val symbol: String) {
 
     private fun match(
         order: Order,
-        oppositeBook: TreeMap<BigDecimal, PriceLevel>,
+        oppositeSide: TreeMap<BigDecimal, PriceLevel>,
         isBuy: Boolean
     ): List<Trade> {
         val trades = mutableListOf<Trade>()
         val eligibleLevels: Map<BigDecimal, PriceLevel> = if (isBuy) {
-            oppositeBook.headMap(order.price, true)
+            oppositeSide.headMap(order.price, true)
         } else {
-            oppositeBook.tailMap(order.price, true).descendingMap()
+            oppositeSide.tailMap(order.price, true).descendingMap()
         }
 
         val toRemove = ArrayList<BigDecimal>()
@@ -138,7 +138,7 @@ class OrderBook(val symbol: String) {
                     timestamp = System.currentTimeMillis()
                 )
                 trades.add(trade)
-                addTrade(trade)
+                addTradeToBook(trade)
                 order.remaining = order.remaining.subtract(tradeQty)
                 level.consumeFromHead(tradeQty)
                 require(order.remaining >= BigDecimal.ZERO) { "Taker overfilled: ${order.remaining}" }
@@ -147,7 +147,7 @@ class OrderBook(val symbol: String) {
                 toRemove.add(entry.key)
             }
         }
-        toRemove.forEach { oppositeBook.remove(it) }
+        toRemove.forEach { oppositeSide.remove(it) }
         return trades
     }
 
@@ -155,7 +155,7 @@ class OrderBook(val symbol: String) {
         book.computeIfAbsent(order.price) { PriceLevel() }.addOrder(order)
     }
 
-    private fun addTrade(trade: Trade) {
+    private fun addTradeToBook(trade: Trade) {
         if (tradesHistory.size == maxTrades) tradesHistory.removeFirst()
         tradesHistory.addLast(trade)
     }
