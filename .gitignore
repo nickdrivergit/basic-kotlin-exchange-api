@@ -31,3 +31,6 @@ replay_pid*
 # Ignore Gradle build output directory
 build
 **/build
+ 
+# IDE or local output directories (not used by Gradle)
+**/bin/
