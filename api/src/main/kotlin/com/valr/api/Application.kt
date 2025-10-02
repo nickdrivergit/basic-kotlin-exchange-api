@@ -103,24 +103,45 @@ class ApiVerticle : CoroutineVerticle() {
             }
         }
 
-        router.get("/openapi.yaml").handler { ctx -> ctx.response().sendFile("openapi.yaml") }
+        router.get("/openapi.yaml").handler { ctx ->
+            val stream = this::class.java.classLoader.getResourceAsStream("openapi.yaml")
+            if (stream == null) {
+                ctx.response().setStatusCode(404).end("openapi.yaml not found")
+            } else {
+                val bytes = stream.readAllBytes()
+                ctx.response()
+                    .putHeader("content-type", "application/yaml; charset=utf-8")
+                    .end(io.vertx.core.buffer.Buffer.buffer(bytes))
+            }
+        }
 
         router.get("/docs").handler { ctx ->
             ctx.response()
-                .putHeader("Content-Type", "text/html")
+                .putHeader("Content-Type", "text/html; charset=utf-8")
                 .end(
                     """
             <!DOCTYPE html>
             <html>
             <head>
+              <meta charset="utf-8" />
               <title>OrderBook API Docs</title>
-              <link rel=\"stylesheet\" href=\"https://unpkg.com/swagger-ui-dist/swagger-ui.css\" />
+              <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css" />
+              <style>body { margin: 0; padding: 0; }</style>
             </head>
             <body>
-              <div id=\"swagger-ui\"></div>
-              <script src=\"https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js\"></script>
+              <div id="swagger-ui"></div>
+              <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+              <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-standalone-preset.js"></script>
               <script>
-                SwaggerUIBundle({ url: '/openapi.yaml', dom_id: '#swagger-ui' })
+                window.addEventListener('load', function() {
+                  const ui = SwaggerUIBundle({
+                    url: '/openapi.yaml',
+                    dom_id: '#swagger-ui',
+                    presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+                    layout: 'StandaloneLayout'
+                  });
+                  window.ui = ui;
+                });
               </script>
             </body>
             </html>

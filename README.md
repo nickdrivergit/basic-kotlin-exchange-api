@@ -10,6 +10,7 @@ Built with **Kotlin + Vert.x**, tested with **JUnit 5**, and packaged via **Dock
 
 ## Table of Contents
 - [Quick Start](#quick-start)
+- [End-to-end Helper (Signed Requests)](#end-to-end-helper-signed-requests)
 - [Project Goals](#project-goals)
 - [Architecture](#architecture)
 - [Design Decisions & Trade-offs](#design-decisions--trade-offs)
@@ -44,6 +45,51 @@ docker build -t exchange-api .
 docker run -p 8080:8080 exchange-api
 curl -s http://localhost:8080/healthz
 ```
+
+### End-to-end Helper (Signed Requests)
+
+An executable helper is provided to exercise the API with VALR‑style HMAC‑signed requests and record every request/response to a timestamped log file.
+
+Location: `scripts/SignAndPost.java`
+
+Run against a locally running Docker container (default dev keys):
+
+```bash
+# In one shell: ensure the container is running and listening on 8080
+docker run --rm -p 8080:8080 exchange-api
+
+# In another shell: compile and run the helper
+javac scripts/SignAndPost.java
+API_BASE=http://localhost:8080 \
+  java -cp scripts SignAndPost
+
+# A new log is written per run under scripts/logs/
+ls scripts/logs/
+```
+
+Alternatively, use the wrapper script:
+
+```bash
+# Defaults to http://localhost:8080 and dev keys
+scripts/run-helper.sh
+
+# Or specify options
+scripts/run-helper.sh -b http://localhost:8080 -k my-key -s my-secret
+```
+
+Environment overrides:
+- `API_BASE` (default `http://localhost:8080`)
+- `API_KEY` (default `test-key`)
+- `API_SECRET` (default `test-secret`)
+
+What it covers:
+- Health check
+- GTC/IOC/FOK order flows (signed POSTs)
+- Depth/limit query validations (400s)
+- Invalid signature (403) and wrong content-type (403)
+
+Log output:
+- Each run creates `scripts/logs/SignAndPost-<epochMillis>.log` containing the exact POST paths, headers, bodies, and the API responses for easy auditing.
 
 ---
 
