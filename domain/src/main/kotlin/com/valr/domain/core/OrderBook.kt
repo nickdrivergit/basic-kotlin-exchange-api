@@ -178,5 +178,26 @@ class OrderBook(val symbol: String) {
         }
         return total >= order.quantity
     }
-}
 
+    // Assuming the structure has changed so that we can find the ID in the map we'd do it like this
+    private fun cancelOrder(orderId: String): Boolean {
+        val orderLocation = book[orderId] ?: return false
+        val book = if (orderLocation.side == Side.BUY) bids else asks
+        val orderLevel = book[orderLocation.price] ?: run {
+            return false
+        }
+        val it = orderLevel.orders.iterator()
+        while (it.hasNext()) {
+            val order = it.next()
+            if (order.id == orderId) {
+                it.remove()
+                orderLevel.totalRemaining = orderLevel.totalRemaining.subtract(order.remaining)
+                if (orderLevel.isEmpty()) {
+                    book.remove(orderLocation.price)
+                }
+                break
+            }
+        }
+        return true
+    }
+}
